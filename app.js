@@ -16,32 +16,90 @@ window.onload = function () {
 // 주소 추가
 function addAddress() {
   const input = document.getElementById("addressInput");
-  const address = input.value.trim();
-  if (!address) return;
+  const query = input.value.trim();
+  if (!query) return;
 
-  setStatus("주소 변환 중...");
+  setStatus("검색 중...");
 
-  naver.maps.Service.geocode({ query: address }, function (status, response) {
-    if (status !== naver.maps.Service.Status.OK) {
-      setStatus("❌ 주소를 찾을 수 없어요. 다시 확인해주세요.");
-      return;
+  // 1차: Geocoding으로 시도 (주소/장소명 둘 다 지원)
+  naver.maps.Service.geocode({ query }, function (status, response) {
+    if (
+      status === naver.maps.Service.Status.OK &&
+      response.v2.addresses.length > 0
+    ) {
+      const result = response.v2.addresses[0];
+      const lat = parseFloat(result.y);
+      const lng = parseFloat(result.x);
+      const label = result.roadAddress || result.jibunAddress || query;
+
+      stops.push({ address: label, lat, lng });
+      input.value = "";
+      setStatus("");
+      renderList();
+      renderMap();
+    } else {
+      // 2차: 장소명 검색으로 fallback (네이버 지역 검색)
+      searchByPlaceName(query, input);
     }
-    const result = response.v2.addresses[0];
-    if (!result) {
-      setStatus("❌ 검색 결과가 없어요.");
-      return;
-    }
-
-    const lat = parseFloat(result.y);
-    const lng = parseFloat(result.x);
-    const roadAddr = result.roadAddress || result.jibunAddress || address;
-
-    stops.push({ address: roadAddr, lat, lng });
-    input.value = "";
-    setStatus("");
-    renderList();
-    renderMap();
   });
+}
+
+// 장소명으로 검색 (네이버 검색 API 필요 없이 좌표 직접 조회)
+function searchByPlaceName(query, input) {
+  // Places API가 없을 경우 Geocoding 결과 없음을 안내하고
+  // 사용자에게 후보 선택 UI 제공
+  naver.maps.Service.geocode(
+    { query: query + " " },
+    function (status, response) {
+      if (
+        status === naver.maps.Service.Status.OK &&
+        response.v2.addresses.length > 0
+      ) {
+        showCandidates(response.v2.addresses, query, input);
+      } else {
+        setStatus(
+          "❌ 검색 결과가 없어요. 더 구체적인 주소나 장소명을 입력해보세요.",
+        );
+      }
+    },
+  );
+}
+
+// 여러 결과 나올 때 선택 UI
+function showCandidates(addresses, query, input) {
+  const existing = document.getElementById("candidates");
+  if (existing) existing.remove();
+
+  const div = document.createElement("div");
+  div.id = "candidates";
+  div.style =
+    "background:#fff; border:1px solid #ccc; border-radius:8px; margin-bottom:8px;";
+
+  addresses.slice(0, 5).forEach((addr, i) => {
+    const label = addr.roadAddress || addr.jibunAddress;
+    const btn = document.createElement("div");
+    btn.style =
+      "padding:10px 12px; border-bottom:1px solid #eee; cursor:pointer; font-size:14px;";
+    btn.textContent = `📍 ${label}`;
+    btn.onclick = () => {
+      stops.push({
+        address: label,
+        lat: parseFloat(addr.y),
+        lng: parseFloat(addr.x),
+      });
+      input.value = "";
+      div.remove();
+      setStatus("");
+      renderList();
+      renderMap();
+    };
+    div.appendChild(btn);
+  });
+
+  document
+    .getElementById("panel")
+    .insertBefore(div, document.getElementById("status"));
+  setStatus("아래 결과 중 선택해주세요.");
 }
 
 // 엔터키로도 추가
