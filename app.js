@@ -219,7 +219,7 @@ function buildNaverRouteUrl(stops) {
   const mid = stops.slice(1, -1);
 
   // 네이버 지도 웹 길찾기 URL
-  let url = `https://map.naver.com/v5/directions/`;
+  let url = `https://map.naver.com/p/directions/`;
   url += `${start.lng},${start.lat},${encodeURIComponent(start.address)},${encodeURIComponent(start.address)},land/`;
 
   mid.forEach((s) => {
@@ -227,7 +227,7 @@ function buildNaverRouteUrl(stops) {
   });
 
   url += `${end.lng},${end.lat},${encodeURIComponent(end.address)},${encodeURIComponent(end.address)},land`;
-  url += `/car?c=15,0,0,0,dh`;
+  url += `/-/-/-/car?c=15,0,0,0,dh`;
 
   return url;
 }
